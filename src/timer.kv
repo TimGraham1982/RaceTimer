@@ -1,0 +1,47 @@
+#:kivy 1.0.9
+
+<HomeScreen>:
+    orientation: 'horizontal'
+    spacing: 5
+    canvas:
+        Color:
+            rgba: 1,1,1,1
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+    BoxLayout:
+        id: buttons
+        canvas:
+            Color:
+                rgba: 0,0,0,1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+        size_hint_x: 1
+        
+        Button:
+            text: 'START'
+            on_press: root.start()
+            
+    
+    BoxLayout:
+        orientation: 'vertical'
+        id: clocks
+        canvas:
+            Color:
+                rgba: 0,0,0,1
+            Rectangle:
+                size: self.size
+                pos: self.pos
+        size_hint_x: 2
+        
+        Label:
+            size_hint_y: 0.15
+            text: 'Time'
+        
+        ClockDisplay:
+            id: clock1
+            size_hint_y: 0.85
+            on_size: self.on_texture_size()
+            on_seconds_to_start: self.text_formatter()
