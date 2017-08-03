@@ -1,8 +1,10 @@
 #:kivy 1.0.9
 
 <HomeScreen>:
+    id: homescreen
     orientation: 'horizontal'
     spacing: 5
+    on_nstarts: print 'nstarts changed to',self.nstarts
     canvas:
         Color:
             rgba: 1,1,1,1
@@ -12,6 +14,7 @@
 
     BoxLayout:
         id: buttons
+        orientation: 'vertical'
         canvas:
             Color:
                 rgba: 0,0,0,1
@@ -21,8 +24,13 @@
         size_hint_x: 1
         
         Button:
+            id: start_stop_btn
             text: 'START'
-            on_press: root.start()
+            on_press: root.start_stop()
+        
+        Button:
+            text: 'Settings'
+            on_release: app.open_settings()
             
     
     BoxLayout:
@@ -45,3 +53,23 @@
             size_hint_y: 0.85
             on_size: self.on_texture_size()
             on_seconds_to_start: self.text_formatter()
+
+<ConfirmStopPopup>:
+    cols:1
+    Label:
+        text: root.text
+    GridLayout:
+        cols: 3
+        size_hint_y: 0.5
+        Button:
+            text: 'Yes with sound 2 signals'
+            text_size: 0.9*self.width, None
+            on_release: root.dispatch('on_answer','yes_horn')
+        Button:
+            text: 'Yes with no sound'
+            text_size: 0.9*self.width, None
+            on_release: root.dispatch('on_answer','yes_quiet')
+        Button:
+            text: 'No'
+            text_size: 0.9*self.width, None
+            on_release: root.dispatch('on_answer', 'continue')
