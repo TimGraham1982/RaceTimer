@@ -33,9 +33,9 @@ class HomeScreen(BoxLayout):
     '''
     def __init__(self, **kwargs):
         super(HomeScreen, self).__init__(**kwargs)
-        self.horn_trigger = Clock.create_trigger(
-                            partial(self.sound_horn, 1.75))
-        self.ids.clock1.horn_trigger = self.horn_trigger
+        self.on_nstarts()
+        self.horn_trigger_set()
+        for c in self.clock_list: c.horn_trigger = self.horn_trigger        
         self.on_sequence()
         self.horn = SoundLoader.load('airhorn.wav')
     
@@ -47,22 +47,23 @@ class HomeScreen(BoxLayout):
                 return
         
         #Clock not running so start it
+        self.start()
+        
+    def start(self):
         #Make sure horn is setup first
-        if not self.horn_trigger.is_triggered:
-            self.horn_trigger = Clock.create_trigger(
-                                partial(self.sound_horn, 1.75))
-        if self.ids.clock1.seconds_to_start in self.ids.clock1.sound_signals:
-            self.horn_trigger()
+        self.horn_trigger_set()
+        for c in self.clock_list:
+            if c.seconds_to_start in c.sound_signals:
+                self.horn_trigger()
         self.running = Clock.schedule_interval(self.cycle, 1)
         self.ids.start_stop_btn.text = 'POSTPONE/ABANDON'
     
     def cycle(self, dt):
-        if not self.horn_trigger.is_triggered:
-            self.horn_trigger = Clock.create_trigger(
-                                partial(self.sound_horn, 1.75))
-        self.ids.clock1.horn_trigger = self.horn_trigger
-        new_time = round(self.ids.clock1.seconds_to_start - dt)
-        self.ids.clock1.seconds_to_start = new_time
+        self.horn_trigger_set()
+        for c in self.clock_list:
+            c.horn_trigger = self.horn_trigger
+            new_time = round(c.seconds_to_start - dt)
+            c.seconds_to_start = new_time
         
     def stop(self):
         content = ConfirmStopPopup(text='Do you really want to stop the timer?')
@@ -85,29 +86,52 @@ class HomeScreen(BoxLayout):
             Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
             self.ids.start_stop_btn.text = 'START'
     
+    def horn_trigger_set(self):
+        if hasattr(self, 'horn_trigger'):
+            if not self.horn_trigger.is_triggered:
+                self.horn_trigger = Clock.create_trigger(
+                                    partial(self.sound_horn, 1.75))
+        else:
+            self.horn_trigger = Clock.create_trigger(
+                                partial(self.sound_horn, 1.75))
+    
     def sound_horn(self,length,dt):
         self.horn.play()
         Clock.schedule_once(lambda dt: self.horn.stop(), length)
         
-#    def on_nstarts(self):
-#        '''
-#        Eventually this should set up to 4 clocks on the display
-#        '''
-#        pass
+    def on_nstarts(self, *args):
+        '''
+        Eventually this should set up to 4 clocks on the display
+        '''
+        if hasattr(self, 'clock_list'):
+            for c in self.clock_list: self.ids.clocks.remove_widget(c)
+        self.clock_list = []
+        for i in range(int(self.nstarts)):
+            c = ClockDisplay()
+            self.ids.clocks.add_widget(c, index=i)
+            self.clock_list.append(c)
+        self.on_sequence()
+    
+    def on_interval(self, *args):
+        self.on_sequence()
     
     def on_sequence(self, *args):
-        if self.sequence == '5, 4, 1, Go':
-            self.ids.clock1.seconds_to_start = 5*60
-            self.ids.clock1.sound_signals = [5*60, 4*60, 60, 0]
-        elif self.sequence == '6, 3, 1, Go':
-            self.ids.clock1.seconds_to_start = 6*60
-            self.ids.clock1.sound_signals = [6*60, 3*60, 60, 0]
-        elif self.sequence == '6, 3, Go':
-            self.ids.clock1.seconds_to_start = 6*60
-            self.ids.clock1.sound_signals = [6*60, 3*60, 0]
-        elif self.sequence == '3, 2, 1, Go':
-            self.ids.clock1.seconds_to_start = 3*60
-            self.ids.clock1.sound_signals = [3*60, 2*60, 60, 0]
+        for i,c in enumerate(self.clock_list):
+            #Clear list of sound signals to avoid horn being triggered
+            c.sound_signals = []
+            if self.sequence == '5, 4, 1, Go':
+                c.seconds_to_start = 5*60 + i*self.interval*60
+                c.sound_signals = [5*60, 4*60, 60, 0]
+            elif self.sequence == '6, 3, 1, Go':
+                c.seconds_to_start = 6*60 + i*self.interval*60
+                c.sound_signals = [6*60, 3*60, 60, 0]
+            elif self.sequence == '6, 3, Go':
+                c.seconds_to_start = 6*60 + i*self.interval*60
+                c.sound_signals = [6*60, 3*60, 0]
+            elif self.sequence == '3, 2, 1, Go':
+                c.seconds_to_start = 3*60 + i*self.interval*60
+                c.sound_signals = [3*60, 2*60, 60, 0]
+
 
 
 class ConfirmStopPopup(GridLayout):
@@ -143,19 +167,21 @@ class ClockDisplay(Label):
         except ZeroDivisionError:
             pass
     
-    def text_formatter(self, *args):
+    def on_seconds_to_start(self, *args):
         if self.seconds_to_start in self.sound_signals:
             if hasattr(self, 'horn_trigger'): self.horn_trigger()
-        mins = self.seconds_to_start/60
-        secs = self.seconds_to_start % 60
+        mins = abs(self.seconds_to_start/60)
+        secs = abs(self.seconds_to_start) % 60
         
         self.text = '%d' % mins + ':' '%02d' % secs
-
+        if self.seconds_to_start <= 0:
+            self.color = [0,1,0,1]
 
 class TimerApp(App):
     def build(self):
         home=HomeScreen()
         home.nstarts = self.config.get('Race settings','nstarts')
+        home.interval = self.config.get('Race settings','interval')
         home.sequence = self.config.get('Race settings','sequence')
         return home
     
