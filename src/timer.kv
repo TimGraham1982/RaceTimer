@@ -26,7 +26,21 @@
         Button:
             id: start_stop_btn
             text: 'START'
-            on_press: root.start_stop()
+            on_release: root.start_stop()
+        
+        Button:
+            text: 'General Recall'
+            on_release: root.general_recall()
+        
+        Button:
+            text: 'Reset'
+            on_release: root.reset()
+            
+            
+        Button:
+            text: 'Sound'
+            on_press: root.horn.play()
+            on_release: root.horn.stop()
         
         Button:
             text: 'Settings'

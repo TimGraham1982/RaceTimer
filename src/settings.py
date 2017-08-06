@@ -19,5 +19,10 @@ settings_json = json.dumps([
      'desc': 'Time between starts in minutes',
      'section': 'Race settings',
      'key' : 'interval'
-     }
+     },
+    {'type': 'bool',
+     'title': 'Add extra minute before first start',
+     'desc': 'e.g. After postponement down?',
+     'section' : 'Race settings',
+     'key' : 'add_minute'}
     ])

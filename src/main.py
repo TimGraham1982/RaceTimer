@@ -9,7 +9,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.properties import (NumericProperty, ListProperty, 
-                             ObjectProperty, BoundedNumericProperty,
+                             ObjectProperty, BooleanProperty,
                              OptionProperty, StringProperty)
 from kivy.clock import Clock
 from kivy.core.audio import SoundLoader
@@ -27,6 +27,7 @@ class HomeScreen(BoxLayout):
                                          '6, 3, Go', 
                                          '3, 2, 1, Go'])
     interval = NumericProperty(5)
+    add_minute = BooleanProperty(False)
     
     '''
     Main page containing the buttons and timers.
@@ -38,6 +39,14 @@ class HomeScreen(BoxLayout):
         for c in self.clock_list: c.horn_trigger = self.horn_trigger        
         self.on_sequence()
         self.horn = SoundLoader.load('airhorn.wav')
+    
+    def reset(self):
+        if hasattr(self, 'running'):
+            if not self.running.is_triggered:
+                #Clock is running so we want to stop it
+                self.on_sequence()
+        else:
+            self.on_sequence()      
     
     def start_stop(self):
         if hasattr(self, 'running'):
@@ -64,6 +73,16 @@ class HomeScreen(BoxLayout):
             c.horn_trigger = self.horn_trigger
             new_time = round(c.seconds_to_start - dt)
             c.seconds_to_start = new_time
+        
+    def general_recall(self):
+        #find the race that has just started
+        #Work out what needs to be done to time
+        #For last start may need a popup to restart the sequence
+        if not hasattr(self, 'running'): return
+        if self.running.is_triggered:
+            Clock.schedule_once(partial(self.sound_horn, 1.75), 0)
+            Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
+            self.running.cancel()
         
     def stop(self):
         content = ConfirmStopPopup(text='Do you really want to stop the timer?')
@@ -114,23 +133,34 @@ class HomeScreen(BoxLayout):
     
     def on_interval(self, *args):
         self.on_sequence()
+        
+    def on_add_minute(self, *args):
+        self.on_sequence()
     
     def on_sequence(self, *args):
         for i,c in enumerate(self.clock_list):
             #Clear list of sound signals to avoid horn being triggered
             c.sound_signals = []
+            if self.add_minute=='1': 
+                extra=60            
+            else: 
+                extra=0
             if self.sequence == '5, 4, 1, Go':
-                c.seconds_to_start = 5*60 + i*self.interval*60
+                c.seconds_to_start = 5*60 + i*self.interval*60 + extra
                 c.sound_signals = [5*60, 4*60, 60, 0]
+                if i==0 and self.add_minute: c.sound_signals.insert(0, 6*60)
             elif self.sequence == '6, 3, 1, Go':
-                c.seconds_to_start = 6*60 + i*self.interval*60
+                c.seconds_to_start = 6*60 + i*self.interval*60 + extra
                 c.sound_signals = [6*60, 3*60, 60, 0]
+                if i==0 and self.add_minute: c.sound_signals.insert(0, 7*60)
             elif self.sequence == '6, 3, Go':
-                c.seconds_to_start = 6*60 + i*self.interval*60
+                c.seconds_to_start = 6*60 + i*self.interval*60 + extra
                 c.sound_signals = [6*60, 3*60, 0]
+                if i==0 and self.add_minute: c.sound_signals.insert(0, 7*60)
             elif self.sequence == '3, 2, 1, Go':
-                c.seconds_to_start = 3*60 + i*self.interval*60
+                c.seconds_to_start = 3*60 + i*self.interval*60 + extra
                 c.sound_signals = [3*60, 2*60, 60, 0]
+                if i==0 and self.add_minute: c.sound_signals.insert(0, 4*60)
 
 
 
@@ -183,13 +213,15 @@ class TimerApp(App):
         home.nstarts = self.config.get('Race settings','nstarts')
         home.interval = self.config.get('Race settings','interval')
         home.sequence = self.config.get('Race settings','sequence')
+        home.add_minute = self.config.get('Race settings','add_minute')
         return home
     
     def build_config(self, config):
         config.setdefaults('Race settings',
             {'sequence': '5, 4, 1, Go',
              'nstarts': 1,
-             'interval' : 5})
+             'interval' : 5,
+             'add_minute': False})
     
     def build_settings(self, settings):
         settings.add_json_panel('Race settings',
@@ -197,10 +229,10 @@ class TimerApp(App):
                                 data = settings_json)
     
     def on_config_change(self, config, section, key, value):
-        print 'In app nstarts=', value
         if key=='nstarts' : self.root.nstarts = value
         if key=='sequence': self.root.sequence = value
         if key=='interval': self.root.interval = value
+        if key=='add_minute': self.root.add_minute = value
         
         
 if __name__ == '__main__':
