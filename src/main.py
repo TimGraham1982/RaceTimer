@@ -17,6 +17,8 @@ from settings import settings_json
 from kivy.uix.gridlayout import GridLayout
 
 from functools import partial
+import time
+import numpy as np
 
 
 class HomeScreen(BoxLayout):
@@ -25,9 +27,13 @@ class HomeScreen(BoxLayout):
                               options = ['5, 4, 1, Go', 
                                          '6, 3, 1, Go', 
                                          '6, 3, Go', 
-                                         '3, 2, 1, Go'])
+                                         '3, 2, 1, Go',
+                                         '1, Go'])
     interval = NumericProperty(5)
     add_minute = BooleanProperty(False)
+    recall_type = OptionProperty('stop_remaining_sequences', 
+                                 options=['move_to_end',
+                                          'stop_remaining_sequences'])
     
     '''
     Main page containing the buttons and timers.
@@ -71,8 +77,9 @@ class HomeScreen(BoxLayout):
         self.horn_trigger_set()
         for c in self.clock_list:
             c.horn_trigger = self.horn_trigger
-            new_time = round(c.seconds_to_start - dt)
-            c.seconds_to_start = new_time
+            if not c.paused:
+                new_time = round(c.seconds_to_start - dt)
+                c.seconds_to_start = new_time
         
     def general_recall(self):
         #find the race that has just started
@@ -80,10 +87,46 @@ class HomeScreen(BoxLayout):
         #For last start may need a popup to restart the sequence
         if not hasattr(self, 'running'): return
         if self.running.is_triggered:
+            #wait for horn to stop
+            if self.horn.state=='play':
+                while self.horn.state=='play':
+                    time.sleep(0.01)
+                time.sleep(0.5)
             Clock.schedule_once(partial(self.sound_horn, 1.75), 0)
             Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
-            self.running.cancel()
-        
+            
+            #If only 1 start then stop it to be run again.
+            if self.nstarts==1: 
+                self.running.cancel()            
+                self.ids.start_stop_btn.text = 'START'
+
+            #How many clocks are negative
+            nstarted = 0
+            times = []
+            for c in self.clock_list:
+                if c.seconds_to_start <= 0: 
+                    nstarted+=1
+                times.append(c.seconds_to_start)
+            times = np.array(times)
+            # Find index of clock which has just started
+            clock_index = (np.abs(times)*-1).argmax()
+                
+            if nstarted==self.nstarts:
+                #recall on last start
+                pass
+            else:
+                if self.recall_type=='move_to_end':
+                    add_time = int((self.interval*60 
+                                + np.ceil(times.max()/60.)*60))
+                    c = self.clock_list[clock_index]
+                    c.seconds_to_start = c.seconds_to_start+add_time
+                elif self.recall_type=='stop_remaining_sequences':
+                    for i,c in enumerate(self.clock_list):
+                        if i==clock_index or c.seconds_to_start > 0:
+                            c.paused = True
+                            #TODO: Reset remaining clocks
+                            #TODO: Popup to restart the sequence
+
     def stop(self):
         content = ConfirmStopPopup(text='Do you really want to stop the timer?')
         content.bind(on_answer=self._on_answer)
@@ -128,7 +171,7 @@ class HomeScreen(BoxLayout):
         for i in range(int(self.nstarts)):
             c = ClockDisplay()
             self.ids.clocks.add_widget(c, index=i)
-            self.clock_list.append(c)
+            self.clock_list.insert(0,c)
         self.on_sequence()
     
     def on_interval(self, *args):
@@ -161,6 +204,10 @@ class HomeScreen(BoxLayout):
                 c.seconds_to_start = 3*60 + i*self.interval*60 + extra
                 c.sound_signals = [3*60, 2*60, 60, 0]
                 if i==0 and self.add_minute: c.sound_signals.insert(0, 4*60)
+            elif self.sequence == '1, Go':
+                c.seconds_to_start = 60 + i*self.interval*60 + extra
+                c.sound_signals = [60, 0]
+                if i==0 and self.add_minute: c.sound_signals.insert(0, 2*60)
 
 
 
@@ -180,6 +227,7 @@ class ClockDisplay(Label):
     factor = dimension = None
     seconds_to_start = NumericProperty(180)
     sound_signals = ListProperty([30,25])
+    paused = BooleanProperty(False)
     
     def on_texture_size(self, *args):
         try:
@@ -206,6 +254,8 @@ class ClockDisplay(Label):
         self.text = '%d' % mins + ':' '%02d' % secs
         if self.seconds_to_start <= 0:
             self.color = [0,1,0,1]
+        else:
+            self.color = [1,1,1,1]
 
 class TimerApp(App):
     def build(self):

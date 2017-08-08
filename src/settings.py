@@ -4,7 +4,7 @@ settings_json = json.dumps([
     {'type': 'options',
      'title': 'Start Sequence',
      'desc':'Choose the type of start sequence',
-     'options': ['5, 4, 1, Go', '6, 3, 1, Go', '6, 3, Go', '3, 2, 1, Go'],
+     'options': ['5, 4, 1, Go', '6, 3, 1, Go', '6, 3, Go', '3, 2, 1, Go','1, Go'],
      'section': 'Race settings',
      'key': 'sequence'
     },
