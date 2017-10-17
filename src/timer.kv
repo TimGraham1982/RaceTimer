@@ -87,3 +87,19 @@
             text: 'No'
             text_size: 0.9*self.width, None
             on_release: root.dispatch('on_answer', 'continue')
+            
+<RecallPopup>:
+    cols:1
+    Label:
+        text: root.text
+    GridLayout:
+        cols: 2
+        size_hint_y: 0.5
+        Button:
+            text: 'Lower General Recall (1 horn)'
+            text_size: 0.9*self.width, None
+            on_release: root.dispatch('on_answer','restart')
+        Button:
+            text: 'Abandon all starts (2 horns)'
+            text_size: 0.9*self.width, None
+            on_release: root.dispatch('on_answer','abandon')

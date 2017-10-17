@@ -96,36 +96,61 @@ class HomeScreen(BoxLayout):
             Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
             
             #If only 1 start then stop it to be run again.
-            if self.nstarts==1: 
-                self.running.cancel()            
+            if self.nstarts==1:
+                #TODO: Only stop if start time has passed?
+                self.running.cancel()
                 self.ids.start_stop_btn.text = 'START'
-
-            #How many clocks are negative
-            nstarted = 0
-            times = []
-            for c in self.clock_list:
-                if c.seconds_to_start <= 0: 
-                    nstarted+=1
-                times.append(c.seconds_to_start)
-            times = np.array(times)
-            # Find index of clock which has just started
-            clock_index = (np.abs(times)*-1).argmax()
-                
-            if nstarted==self.nstarts:
-                #recall on last start
-                pass
             else:
-                if self.recall_type=='move_to_end':
-                    add_time = int((self.interval*60 
-                                + np.ceil(times.max()/60.)*60))
-                    c = self.clock_list[clock_index]
-                    c.seconds_to_start = c.seconds_to_start+add_time
-                elif self.recall_type=='stop_remaining_sequences':
-                    for i,c in enumerate(self.clock_list):
-                        if i==clock_index or c.seconds_to_start > 0:
-                            c.paused = True
-                            #TODO: Reset remaining clocks
-                            #TODO: Popup to restart the sequence
+                #How many clocks are negative
+                nstarted = 0
+                times = []
+                for c in self.clock_list:
+                    if c.seconds_to_start <= 0: 
+                        nstarted+=1
+                    times.append(c.seconds_to_start)
+                times = np.array(times)
+                # Find index of clock which has just started
+                clock_index = (np.abs(times)*-1).argmax()
+                    
+                if nstarted==self.nstarts:
+                    #recall on last start
+                    pass
+                else:
+                    if self.recall_type=='move_to_end':
+                        add_time = int((self.interval*60 
+                                    + np.ceil(times.max()/60.)*60))
+                        c = self.clock_list[clock_index]
+                        c.seconds_to_start = c.seconds_to_start+add_time
+                    elif self.recall_type=='stop_remaining_sequences':
+                        stopped_clocks=[]
+                        for i,c in enumerate(self.clock_list):
+                            if i==clock_index or c.seconds_to_start > 0:
+                                c.paused = True
+                                stopped_clocks.append(i)
+                                #TODO: Reset remaining clocks
+                                #TODO: Popup to restart the sequence
+                        self.on_sequence(indices=stopped_clocks,
+                                         add_minute=True)
+                        self.restart_after_recall()
+    
+                        
+    def restart_after_recall(self):
+        content = RecallPopup(
+            text='Press to restart sequences for remaining starts')
+        content.bind(on_answer=self._restart)
+        self.popup = Popup(title='Restart',
+                            content=content,
+                            size_hint=(0.7,0.7),
+                            auto_dismiss= False)
+        self.popup.open()
+        
+    def _restart(self, instance, answer):
+        self.popup.dismiss()
+        
+        if answer=='restart':
+            self.horn_trigger_set()
+            self.horn_trigger()
+            for c in self.clock_list: c.paused=False
 
     def stop(self):
         content = ConfirmStopPopup(text='Do you really want to stop the timer?')
@@ -180,34 +205,42 @@ class HomeScreen(BoxLayout):
     def on_add_minute(self, *args):
         self.on_sequence()
     
-    def on_sequence(self, *args):
-        for i,c in enumerate(self.clock_list):
+    def on_sequence(self, *args, **kwargs):
+        print kwargs
+        if kwargs.has_key('indices'):
+            clocks_to_set = []
+            for i in kwargs['indices']: 
+                clocks_to_set.append(self.clock_list[i])
+        else: clocks_to_set = self.clock_list
+        if kwargs.get('add_minute',False) or self.add_minute=='1':
+            extra=60
+            add_minute=True
+        else:
+            extra=0
+            add_minute=False
+        for i,c in enumerate(clocks_to_set):
             #Clear list of sound signals to avoid horn being triggered
             c.sound_signals = []
-            if self.add_minute=='1': 
-                extra=60            
-            else: 
-                extra=0
             if self.sequence == '5, 4, 1, Go':
                 c.seconds_to_start = 5*60 + i*self.interval*60 + extra
                 c.sound_signals = [5*60, 4*60, 60, 0]
-                if i==0 and self.add_minute: c.sound_signals.insert(0, 6*60)
+                if i==0 and add_minute: c.sound_signals.insert(0, 6*60)
             elif self.sequence == '6, 3, 1, Go':
                 c.seconds_to_start = 6*60 + i*self.interval*60 + extra
                 c.sound_signals = [6*60, 3*60, 60, 0]
-                if i==0 and self.add_minute: c.sound_signals.insert(0, 7*60)
+                if i==0 and add_minute: c.sound_signals.insert(0, 7*60)
             elif self.sequence == '6, 3, Go':
                 c.seconds_to_start = 6*60 + i*self.interval*60 + extra
                 c.sound_signals = [6*60, 3*60, 0]
-                if i==0 and self.add_minute: c.sound_signals.insert(0, 7*60)
+                if i==0 and add_minute: c.sound_signals.insert(0, 7*60)
             elif self.sequence == '3, 2, 1, Go':
                 c.seconds_to_start = 3*60 + i*self.interval*60 + extra
                 c.sound_signals = [3*60, 2*60, 60, 0]
-                if i==0 and self.add_minute: c.sound_signals.insert(0, 4*60)
+                if i==0 and add_minute: c.sound_signals.insert(0, 4*60)
             elif self.sequence == '1, Go':
                 c.seconds_to_start = 60 + i*self.interval*60 + extra
                 c.sound_signals = [60, 0]
-                if i==0 and self.add_minute: c.sound_signals.insert(0, 2*60)
+                if i==0 and add_minute: c.sound_signals.insert(0, 2*60)
 
 
 
@@ -217,6 +250,17 @@ class ConfirmStopPopup(GridLayout):
     def __init__(self,**kwargs):
         self.register_event_type('on_answer')
         super(ConfirmStopPopup,self).__init__(**kwargs)
+        
+    def on_answer(self, *args):
+        pass
+
+
+class RecallPopup(GridLayout):
+    text = StringProperty()
+   
+    def __init__(self,**kwargs):
+        self.register_event_type('on_answer')
+        super(RecallPopup,self).__init__(**kwargs)
         
     def on_answer(self, *args):
         pass
