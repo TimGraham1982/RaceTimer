@@ -20,6 +20,8 @@ from functools import partial
 import time
 import numpy as np
 
+def dummy(self):
+    pass
 
 class HomeScreen(BoxLayout):
     nstarts = NumericProperty(1, min=1, max=4)
@@ -80,58 +82,48 @@ class HomeScreen(BoxLayout):
             if not c.paused:
                 new_time = round(c.seconds_to_start - dt)
                 c.seconds_to_start = new_time
-        
+    
     def general_recall(self):
-        #find the race that has just started
-        #Work out what needs to be done to time
-        #For last start may need a popup to restart the sequence
         if not hasattr(self, 'running'): return
         if self.running.is_triggered:
             #wait for horn to stop
+            #This is really messy but I can't get it to work in a while loop
             if self.horn.state=='play':
-                while self.horn.state=='play':
-                    time.sleep(0.01)
-                time.sleep(0.5)
-            Clock.schedule_once(partial(self.sound_horn, 1.75), 0)
-            Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
+                delay=2.25
+            else: delay=0
+
+            print 'Next horn now'
+            Clock.schedule_once(partial(self.sound_horn, 1.75), delay)
+            Clock.schedule_once(partial(self.sound_horn, 1.75), delay+2.5)
             
-            #If only 1 start then stop it to be run again.
-            if self.nstarts==1:
-                #TODO: Only stop if start time has passed?
-                self.running.cancel()
-                self.ids.start_stop_btn.text = 'START'
-            else:
-                #How many clocks are negative
-                nstarted = 0
-                times = []
-                for c in self.clock_list:
-                    if c.seconds_to_start <= 0: 
-                        nstarted+=1
-                    times.append(c.seconds_to_start)
-                times = np.array(times)
-                # Find index of clock which has just started
-                clock_index = (np.abs(times)*-1).argmax()
-                    
-                if nstarted==self.nstarts:
-                    #recall on last start
-                    pass
-                else:
-                    if self.recall_type=='move_to_end':
-                        add_time = int((self.interval*60 
-                                    + np.ceil(times.max()/60.)*60))
-                        c = self.clock_list[clock_index]
-                        c.seconds_to_start = c.seconds_to_start+add_time
-                    elif self.recall_type=='stop_remaining_sequences':
-                        stopped_clocks=[]
-                        for i,c in enumerate(self.clock_list):
-                            if i==clock_index or c.seconds_to_start > 0:
-                                c.paused = True
-                                stopped_clocks.append(i)
-                                #TODO: Reset remaining clocks
-                                #TODO: Popup to restart the sequence
-                        self.on_sequence(indices=stopped_clocks,
-                                         add_minute=True)
-                        self.restart_after_recall()
+            #How many clocks are negative
+            nstarted = 0
+            times = []
+            for c in self.clock_list:
+                if c.seconds_to_start <= 0: 
+                    nstarted+=1
+                times.append(c.seconds_to_start)
+            times = np.array(times)
+            # Find index of clock which has just started
+            clock_index = (np.abs(times)*-1).argmax()
+
+            if (self.recall_type=='stop_remaining_sequences' or 
+                self.nstarts == nstarted):
+                stopped_clocks=[]
+                for i,c in enumerate(self.clock_list):
+                    if i==clock_index or c.seconds_to_start > 0:
+                        c.paused = True
+                        stopped_clocks.append(i)
+                        #TODO: Reset remaining clocks
+                        #TODO: Popup to restart the sequence
+                self.on_sequence(indices=stopped_clocks,
+                                 add_minute=True)
+                self.restart_after_recall()                    
+            elif self.recall_type=='move_to_end':
+                add_time = int((self.interval*60 
+                            + np.ceil(times.max()/60.)*60))
+                c = self.clock_list[clock_index]
+                c.seconds_to_start = c.seconds_to_start+add_time
     
                         
     def restart_after_recall(self):
@@ -151,6 +143,12 @@ class HomeScreen(BoxLayout):
             self.horn_trigger_set()
             self.horn_trigger()
             for c in self.clock_list: c.paused=False
+        elif answer=='abandon':
+            self.running.cancel()
+            Clock.schedule_once(partial(self.sound_horn, 1.75), 0)
+            Clock.schedule_once(partial(self.sound_horn, 1.75), 2.5)
+            self.ids.start_stop_btn.text = 'START'
+            for c in self.clock_list: c.paused=False         
 
     def stop(self):
         content = ConfirmStopPopup(text='Do you really want to stop the timer?')
@@ -183,6 +181,7 @@ class HomeScreen(BoxLayout):
                                 partial(self.sound_horn, 1.75))
     
     def sound_horn(self,length,dt):
+        print 'horn'
         self.horn.play()
         Clock.schedule_once(lambda dt: self.horn.stop(), length)
         
@@ -206,7 +205,6 @@ class HomeScreen(BoxLayout):
         self.on_sequence()
     
     def on_sequence(self, *args, **kwargs):
-        print kwargs
         if kwargs.has_key('indices'):
             clocks_to_set = []
             for i in kwargs['indices']: 
