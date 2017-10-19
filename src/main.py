@@ -33,9 +33,9 @@ class HomeScreen(BoxLayout):
                                          '1, Go'])
     interval = NumericProperty(5)
     add_minute = BooleanProperty(False)
-    recall_type = OptionProperty('stop_remaining_sequences', 
-                                 options=['move_to_end',
-                                          'stop_remaining_sequences'])
+    recall_type = OptionProperty('move_to_end', 
+                            options=['move_to_end',
+                                     'stop_remaining_sequences'])
     
     '''
     Main page containing the buttons and timers.
@@ -92,7 +92,6 @@ class HomeScreen(BoxLayout):
                 delay=2.25
             else: delay=0
 
-            print 'Next horn now'
             Clock.schedule_once(partial(self.sound_horn, 1.75), delay)
             Clock.schedule_once(partial(self.sound_horn, 1.75), delay+2.5)
             
@@ -114,8 +113,6 @@ class HomeScreen(BoxLayout):
                     if i==clock_index or c.seconds_to_start > 0:
                         c.paused = True
                         stopped_clocks.append(i)
-                        #TODO: Reset remaining clocks
-                        #TODO: Popup to restart the sequence
                 self.on_sequence(indices=stopped_clocks,
                                  add_minute=True)
                 self.restart_after_recall()                    
@@ -181,7 +178,6 @@ class HomeScreen(BoxLayout):
                                 partial(self.sound_horn, 1.75))
     
     def sound_horn(self,length,dt):
-        print 'horn'
         self.horn.play()
         Clock.schedule_once(lambda dt: self.horn.stop(), length)
         
@@ -306,6 +302,7 @@ class TimerApp(App):
         home.interval = self.config.get('Race settings','interval')
         home.sequence = self.config.get('Race settings','sequence')
         home.add_minute = self.config.get('Race settings','add_minute')
+        home.recall = self.config.get('Race settings','recall')
         return home
     
     def build_config(self, config):
@@ -313,7 +310,8 @@ class TimerApp(App):
             {'sequence': '5, 4, 1, Go',
              'nstarts': 1,
              'interval' : 5,
-             'add_minute': False})
+             'add_minute': False,
+             'recall': 'Move start to end'})
     
     def build_settings(self, settings):
         settings.add_json_panel('Race settings',
@@ -325,6 +323,11 @@ class TimerApp(App):
         if key=='sequence': self.root.sequence = value
         if key=='interval': self.root.interval = value
         if key=='add_minute': self.root.add_minute = value
+        if key=='recall': 
+            if value=='Move start to end': 
+                self.root.recall_type = 'move_to_end'
+            else:
+                self.root.recall_type = 'stop_remaining_sequences'
         
         
 if __name__ == '__main__':

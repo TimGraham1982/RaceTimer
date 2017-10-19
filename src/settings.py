@@ -24,5 +24,12 @@ settings_json = json.dumps([
      'title': 'Add extra minute before first start',
      'desc': 'e.g. After postponement down?',
      'section' : 'Race settings',
-     'key' : 'add_minute'}
+     'key' : 'add_minute'},
+    {'type': 'options',
+     'title': 'General Recall Option',
+     'desc':'Choose behaviour for general recalls if multiple starts',
+     'options': ['Move start to end', 'Reset Current and later starts'],
+     'section': 'Race settings',
+     'key': 'recall'
+    }
     ])
